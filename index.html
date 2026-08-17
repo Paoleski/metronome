@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Metronome</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="atmosphere" aria-hidden="true"></div>
+
+  <main class="app" data-mode="metronome">
+    <header class="brand">
+      <div class="brand-copy">
+        <h1>Metronome</h1>
+        <p class="tagline">Steady tempo. Clear time.</p>
+      </div>
+      <div class="mode-switch" id="modeSwitch" role="group" aria-label="App mode">
+        <button type="button" data-mode="metronome" aria-pressed="true">Metronome</button>
+        <button type="button" data-mode="strum" aria-pressed="false">Strum</button>
+      </div>
+    </header>
+
+    <section class="stage panel-metronome" aria-label="Beat visualizer">
+      <div class="pulse-ring" id="pulseRing"></div>
+      <div class="beat-orb" id="beatOrb">
+        <span class="beat-num" id="beatNum">1</span>
+      </div>
+      <div class="beat-dots" id="beatDots" role="list" aria-label="Beats in measure"></div>
+    </section>
+
+    <section class="tempo" aria-label="Tempo controls">
+      <span class="card-label panel-strum">Tempo</span>
+      <div class="bpm-display">
+        <button type="button" class="step" id="bpmDown" aria-label="Decrease BPM">−</button>
+        <div class="bpm-value">
+          <input type="number" id="bpmInput" min="20" max="240" value="120" aria-label="BPM" />
+          <span class="bpm-label">BPM</span>
+        </div>
+        <button type="button" class="step" id="bpmUp" aria-label="Increase BPM">+</button>
+      </div>
+      <input type="range" id="bpmSlider" min="20" max="240" value="120" aria-label="BPM slider" />
+      <button type="button" class="tap" id="tapBpm">Tap tempo</button>
+    </section>
+
+    <section class="meters" aria-label="Timers">
+      <div class="meter">
+        <div class="meter-head">
+          <span class="meter-label">Chronometer</span>
+          <button type="button" class="meter-reset" id="chronoReset" aria-label="Reset chronometer">Reset</button>
+        </div>
+        <time class="meter-value" id="chrono" datetime="PT0S">00:00.0</time>
+      </div>
+      <div class="meter meter-timer">
+        <span class="meter-label">Timer</span>
+        <div class="timer-inputs">
+          <label class="sr-only" for="timerMin">Minutes</label>
+          <input type="number" id="timerMin" min="0" max="99" value="0" />
+          <span class="colon">:</span>
+          <label class="sr-only" for="timerSec">Seconds</label>
+          <input type="number" id="timerSec" min="0" max="59" value="0" />
+        </div>
+        <time class="meter-value remaining" id="timerRemaining" hidden>00:00</time>
+      </div>
+    </section>
+
+    <section class="beats-row panel-metronome" aria-label="Beats per measure">
+      <span class="row-label">Beats</span>
+      <div class="beat-picker" id="beatPicker" role="group" aria-label="Beats per measure">
+        <button type="button" data-beats="2" aria-pressed="false">2</button>
+        <button type="button" data-beats="3" aria-pressed="false">3</button>
+        <button type="button" data-beats="4" aria-pressed="true">4</button>
+        <button type="button" data-beats="5" aria-pressed="false">5</button>
+        <button type="button" data-beats="6" aria-pressed="false">6</button>
+      </div>
+    </section>
+
+    <label class="toggle-row panel-metronome" for="accentFirst">
+      <span class="row-label">Accent first beat</span>
+      <input type="checkbox" id="accentFirst" checked />
+      <span class="toggle" aria-hidden="true"></span>
+    </label>
+
+    <section class="strum panel-strum" aria-label="Strum pattern" hidden>
+      <div class="pattern-grid" id="patternGrid" role="group" aria-label="Strum pattern cells"></div>
+
+      <footer class="strum-bar">
+        <div class="segmented" id="notePicker" role="group" aria-label="Notes in pattern">
+          <button type="button" data-notes="4" aria-pressed="false">4</button>
+          <button type="button" data-notes="6" aria-pressed="false">6</button>
+          <button type="button" data-notes="8" aria-pressed="true">8</button>
+          <button type="button" data-notes="12" aria-pressed="false">12</button>
+          <button type="button" data-notes="16" aria-pressed="false">16</button>
+          <button type="button" data-notes="24" aria-pressed="false">24</button>
+          <button type="button" data-notes="32" aria-pressed="false">32</button>
+        </div>
+        <button type="button" class="accent-mode" id="accentModeBtn" aria-pressed="false">Accent: Off</button>
+        <div class="strum-bar-div" aria-hidden="true"></div>
+        <ul class="strum-legend" aria-label="Pattern legend">
+          <li><span class="legend-swatch down" aria-hidden="true">↓</span> Down</li>
+          <li><span class="legend-swatch up" aria-hidden="true">↑</span> Up</li>
+          <li><span class="legend-swatch off" aria-hidden="true">—</span> Off</li>
+          <li><span class="legend-swatch accent" aria-hidden="true">★</span> Accent</li>
+        </ul>
+        <p class="strum-meta" id="strumMeta">8 notes · Eighths</p>
+      </footer>
+    </section>
+
+    <aside class="strum-library panel-strum" aria-label="Saved strums" hidden>
+      <span class="card-label">Saved strums</span>
+      <div class="strum-save">
+        <label class="sr-only" for="strumName">Pattern name</label>
+        <input type="text" id="strumName" maxlength="40" placeholder="Name this strum" />
+        <button type="button" class="strum-save-btn" id="strumSaveBtn">Save</button>
+      </div>
+      <ul class="strum-list" id="strumList" aria-label="Saved strum patterns"></ul>
+      <div class="strum-io">
+        <button type="button" class="strum-io-btn" id="strumExportBtn" title="Export all saved strums as a JSON file">Export</button>
+        <label class="strum-io-btn strum-import-label" title="Import strums from a JSON file">
+          Import
+          <input type="file" id="strumImportInput" accept=".json" class="sr-only" />
+        </label>
+      </div>
+    </aside>
+
+    <div class="actions">
+      <button type="button" class="play" id="playBtn" aria-pressed="false">Start</button>
+      <button type="button" class="reset" id="resetBtn">Reset</button>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
