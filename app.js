@@ -48,6 +48,36 @@
   const CELL_MIN = 28;
   const CELL_MAX = 152;
   const DISPLAY_TICK_MS = 100;
+  const BLOCK_START_MAX = 7;
+  const MAX_FRET = 22;
+  const INLAY_FRETS = [3, 5, 7, 9, 12, 15, 17, 19, 21];
+  const STRINGS = ["e", "B", "G", "D", "A", "E"];
+  // MIDI pitches for open strings, same index order as STRINGS (0 = high e).
+  const STRING_PITCHES = [64, 59, 55, 50, 45, 40];
+  const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+  const STRING_LABELS = [
+    "1st string (e)",
+    "2nd string (B)",
+    "3rd string (G)",
+    "4th string (D)",
+    "5th string (A)",
+    "6th string (E)",
+  ];
+  const INTERVALS = [
+    { id: "pu", label: "Perfect Unison", short: "1", semitones: 0 },
+    { id: "m2", label: "Minor 2nd", short: "m2", semitones: 1 },
+    { id: "M2", label: "Major 2nd", short: "M2", semitones: 2 },
+    { id: "m3", label: "Minor 3rd", short: "m3", semitones: 3 },
+    { id: "M3", label: "Major 3rd", short: "M3", semitones: 4 },
+    { id: "P4", label: "Perfect 4th", short: "P4", semitones: 5 },
+    { id: "TT", label: "Tritone (Augmented 4th / Diminished 5th)", short: "TT", semitones: 6 },
+    { id: "P5", label: "Perfect 5th", short: "P5", semitones: 7 },
+    { id: "m6", label: "Minor 6th", short: "m6", semitones: 8 },
+    { id: "M6", label: "Major 6th", short: "M6", semitones: 9 },
+    { id: "m7", label: "Minor 7th", short: "m7", semitones: 10 },
+    { id: "M7", label: "Major 7th", short: "M7", semitones: 11 },
+    { id: "P8", label: "Perfect Octave", short: "8ve", semitones: 12 },
+  ];
 
   const els = {
     app: document.querySelector(".app"),
@@ -81,6 +111,23 @@
     strumList: document.getElementById("strumList"),
     strumExportBtn: document.getElementById("strumExportBtn"),
     strumImportInput: document.getElementById("strumImportInput"),
+    intervalsPanel: document.querySelector(".panel-intervals"),
+    blockStartDown: document.getElementById("blockStartDown"),
+    blockStartUp: document.getElementById("blockStartUp"),
+    blockStartValue: document.getElementById("blockStartValue"),
+    blockRangeLabel: document.getElementById("blockRangeLabel"),
+    rootPicker: document.getElementById("rootPicker"),
+    stringPicker: document.getElementById("stringPicker"),
+    intervalName: document.getElementById("intervalName"),
+    intervalRootHint: document.getElementById("intervalRootHint"),
+    intervalRevealBtn: document.getElementById("intervalRevealBtn"),
+    intervalNextBtn: document.getElementById("intervalNextBtn"),
+    intervalAnswer: document.getElementById("intervalAnswer"),
+    fretboard: document.getElementById("fretboard"),
+    fretCaptions: document.getElementById("fretCaptions"),
+    wholeStepsValue: document.getElementById("wholeStepsValue"),
+    halfStepsValue: document.getElementById("halfStepsValue"),
+    stepFormula: document.getElementById("stepFormula"),
   };
 
   const state = {
@@ -122,6 +169,11 @@
     lowPower: false,
     batteryDischarging: false,
     fitCache: { w: 0, h: 0, preset: "", cell: "" },
+    blockStart: 0,
+    rootIndex: 0,
+    stringIndex: 5,
+    currentInterval: null,
+    revealed: false,
   };
 
   function preset(key = state.preset) {
@@ -749,6 +801,9 @@
     els.strumPanels.forEach((panel) => {
       panel.hidden = mode !== "strum";
     });
+    if (els.intervalsPanel) {
+      els.intervalsPanel.hidden = mode !== "intervals";
+    }
 
     els.modeSwitch.querySelectorAll("button").forEach((btn) => {
       btn.setAttribute("aria-pressed", btn.dataset.mode === mode ? "true" : "false");
@@ -759,9 +814,271 @@
       updateStrumMeta();
       renderSavedStrums();
       requestAnimationFrame(fitPatternCells);
+    } else if (mode === "intervals") {
+      renderIntervalSetup();
+      dealInterval();
     } else {
       renderDots();
     }
+  }
+
+  function rootFret() {
+    return state.blockStart + state.rootIndex;
+  }
+
+  function pitchAt(stringIndex, fret) {
+    return STRING_PITCHES[stringIndex] + fret;
+  }
+
+  function noteName(pitch) {
+    return NOTE_NAMES[((pitch % 12) + 12) % 12];
+  }
+
+  function outsideBlockDistance(fret) {
+    const lo = state.blockStart;
+    const hi = state.blockStart + 3;
+    if (fret < lo) return lo - fret;
+    if (fret > hi) return fret - hi;
+    return 0;
+  }
+
+  function findInPositionSpot(targetPitch) {
+    const candidates = [];
+    for (let stringIndex = 0; stringIndex < STRINGS.length; stringIndex += 1) {
+      for (let fret = 0; fret <= MAX_FRET; fret += 1) {
+        if (pitchAt(stringIndex, fret) !== targetPitch) continue;
+        candidates.push({ stringIndex, fret });
+      }
+    }
+    if (!candidates.length) return null;
+
+    candidates.sort((a, b) => {
+      const scoreA = outsideBlockDistance(a.fret) * 10 + Math.abs(a.stringIndex - state.stringIndex);
+      const scoreB = outsideBlockDistance(b.fret) * 10 + Math.abs(b.stringIndex - state.stringIndex);
+      if (scoreA !== scoreB) return scoreA - scoreB;
+      const sameA = a.stringIndex === state.stringIndex ? 0 : 1;
+      const sameB = b.stringIndex === state.stringIndex ? 0 : 1;
+      if (sameA !== sameB) return sameA - sameB;
+      return a.fret - b.fret;
+    });
+
+    return candidates[0];
+  }
+
+  function renderIntervalSetup() {
+    els.blockStartValue.textContent = String(state.blockStart);
+    els.blockRangeLabel.textContent = `Frets ${state.blockStart}–${state.blockStart + 3}`;
+    els.blockStartDown.disabled = state.blockStart <= 0;
+    els.blockStartUp.disabled = state.blockStart >= BLOCK_START_MAX;
+
+    els.rootPicker.querySelectorAll("button").forEach((btn) => {
+      btn.setAttribute(
+        "aria-pressed",
+        Number(btn.dataset.root) === state.rootIndex ? "true" : "false"
+      );
+    });
+
+    els.stringPicker.querySelectorAll("button").forEach((btn) => {
+      btn.setAttribute(
+        "aria-pressed",
+        Number(btn.dataset.string) === state.stringIndex ? "true" : "false"
+      );
+    });
+
+    updateIntervalRootHint();
+  }
+
+  function updateIntervalRootHint() {
+    els.intervalRootHint.textContent = `Root on fret ${rootFret()} · ${STRING_LABELS[state.stringIndex]}`;
+  }
+
+  function renderIntervalPrompt() {
+    els.intervalName.textContent = state.currentInterval
+      ? state.currentInterval.label
+      : "—";
+    updateIntervalRootHint();
+  }
+
+  function makeFretDot(kind, label) {
+    const dot = document.createElement("span");
+    dot.className = `fret-dot ${kind}`;
+    dot.textContent = label;
+    return dot;
+  }
+
+  function renderFretboard() {
+    els.fretboard.innerHTML = "";
+    els.fretCaptions.innerHTML = "";
+    if (!state.currentInterval || !state.revealed) {
+      els.intervalAnswer.hidden = true;
+      return;
+    }
+
+    const root = { stringIndex: state.stringIndex, fret: rootFret() };
+    const rootPitch = pitchAt(root.stringIndex, root.fret);
+    const targetPitch = rootPitch + state.currentInterval.semitones;
+    const sameStringFret = root.fret + state.currentInterval.semitones;
+    const inPos =
+      findInPositionSpot(targetPitch) ||
+      { stringIndex: state.stringIndex, fret: sameStringFret };
+    const short = state.currentInterval.short;
+    const inPosIsRoot = inPos.stringIndex === root.stringIndex && inPos.fret === root.fret;
+    const acrossStrings = inPos.stringIndex !== root.stringIndex;
+
+    // Only frame the natural answer (root + in-position). When the shape
+    // moves to another string, skip the same-string stretch so the board
+    // stays focused on how it's actually fretted.
+    const frets = [root.fret, inPos.fret, state.blockStart, state.blockStart + 3];
+    if (!acrossStrings) frets.push(sameStringFret);
+    const from = Math.max(0, Math.min(...frets) - 1);
+    const to = Math.min(MAX_FRET, Math.max(...frets) + 1);
+    const fretCount = to - from + 1;
+
+    els.fretboard.style.setProperty("--frets", String(fretCount));
+    els.fretboard.style.setProperty("--fret-w", fretCount > 10 ? "2.35rem" : "2.75rem");
+
+    for (let s = 0; s < STRINGS.length; s += 1) {
+      const label = document.createElement("div");
+      label.className = "fret-string-label";
+      label.textContent = STRINGS[s];
+      els.fretboard.appendChild(label);
+
+      for (let fret = from; fret <= to; fret += 1) {
+        const lane = document.createElement("div");
+        lane.className = "fret-lane";
+        if (fret === 0) lane.classList.add("open", "nut");
+        if (fret >= state.blockStart && fret <= state.blockStart + 3) {
+          lane.classList.add("in-block");
+        }
+        if (INLAY_FRETS.includes(fret)) {
+          if (fret === 12) {
+            if (s === 1 || s === 4) {
+              const inlay = document.createElement("span");
+              inlay.className = "fret-inlay";
+              inlay.setAttribute("aria-hidden", "true");
+              lane.appendChild(inlay);
+            }
+          } else if (s === 2) {
+            const inlay = document.createElement("span");
+            inlay.className = "fret-inlay";
+            inlay.setAttribute("aria-hidden", "true");
+            lane.appendChild(inlay);
+          }
+        }
+
+        if (root.stringIndex === s && root.fret === fret) {
+          lane.appendChild(makeFretDot("root", "R"));
+        }
+        if (inPos.stringIndex === s && inPos.fret === fret && !inPosIsRoot) {
+          lane.appendChild(makeFretDot("target", short));
+        }
+
+        els.fretboard.appendChild(lane);
+      }
+    }
+
+    const corner = document.createElement("div");
+    corner.className = "fret-num-label";
+    corner.setAttribute("aria-hidden", "true");
+    els.fretboard.appendChild(corner);
+
+    for (let fret = from; fret <= to; fret += 1) {
+      const num = document.createElement("div");
+      num.className = "fret-num";
+      if (fret >= state.blockStart && fret <= state.blockStart + 3) {
+        num.classList.add("in-block");
+      }
+      num.textContent = String(fret);
+      els.fretboard.appendChild(num);
+    }
+
+    const steps = state.currentInterval.semitones;
+    const wholeCount = Math.floor(steps / 2);
+    const remHalf = steps % 2;
+    els.wholeStepsValue.textContent = remHalf
+      ? wholeCount === 0
+        ? "½"
+        : `${wholeCount}½`
+      : String(wholeCount);
+    els.halfStepsValue.textContent = String(steps);
+    if (steps === 0) {
+      els.stepFormula.textContent = "Unison · no steps";
+    } else if (remHalf === 0) {
+      els.stepFormula.textContent =
+        wholeCount === 1 ? "1 whole step" : `${wholeCount} whole steps`;
+    } else if (wholeCount === 0) {
+      els.stepFormula.textContent = "1 half step";
+    } else {
+      els.stepFormula.textContent = `${wholeCount} whole + 1 half`;
+    }
+
+    const stepLabel = steps === 1 ? "1 half step" : `${steps} half steps`;
+    const lines = [
+      `Root: ${STRING_LABELS[root.stringIndex]}, fret ${root.fret} (${noteName(rootPitch)})`,
+    ];
+
+    if (inPosIsRoot) {
+      lines.push("Same note · unison");
+    } else {
+      const targetLine = `Answer: ${STRING_LABELS[inPos.stringIndex]}, fret ${inPos.fret} (${noteName(pitchAt(inPos.stringIndex, inPos.fret))})`;
+      lines.push(
+        acrossStrings
+          ? targetLine
+          : `${targetLine} · +${stepLabel}`
+      );
+    }
+
+    lines.forEach((text) => {
+      const p = document.createElement("p");
+      p.className = "fret-note-line";
+      p.textContent = text;
+      els.fretCaptions.appendChild(p);
+    });
+
+    els.intervalAnswer.hidden = false;
+  }
+
+  function setReveal(on) {
+    state.revealed = on;
+    els.intervalRevealBtn.setAttribute("aria-pressed", on ? "true" : "false");
+    els.intervalRevealBtn.textContent = on ? "Hide answer" : "Show answer";
+    renderFretboard();
+  }
+
+  function dealInterval() {
+    const pick = INTERVALS[Math.floor(Math.random() * INTERVALS.length)];
+    state.currentInterval = pick;
+    renderIntervalPrompt();
+    setReveal(false);
+  }
+
+  function refreshIntervalAnswerLayout() {
+    updateIntervalRootHint();
+    if (state.revealed) renderFretboard();
+  }
+
+  function setBlockStart(value) {
+    const next = Math.min(BLOCK_START_MAX, Math.max(0, value));
+    if (next === state.blockStart) return;
+    state.blockStart = next;
+    renderIntervalSetup();
+    refreshIntervalAnswerLayout();
+  }
+
+  function setRootIndex(index) {
+    const next = Math.min(3, Math.max(0, index));
+    if (next === state.rootIndex) return;
+    state.rootIndex = next;
+    renderIntervalSetup();
+    refreshIntervalAnswerLayout();
+  }
+
+  function setStringIndex(index) {
+    const next = Math.min(5, Math.max(0, index));
+    if (next === state.stringIndex) return;
+    state.stringIndex = next;
+    renderIntervalSetup();
+    refreshIntervalAnswerLayout();
   }
 
   function setAccentMode(on) {
@@ -1105,6 +1422,30 @@
     reader.readAsText(file);
   });
 
+  els.blockStartDown.addEventListener("click", () => setBlockStart(state.blockStart - 1));
+  els.blockStartUp.addEventListener("click", () => setBlockStart(state.blockStart + 1));
+
+  els.rootPicker.addEventListener("click", (event) => {
+    const btn = event.target.closest("button[data-root]");
+    if (!btn) return;
+    setRootIndex(Number(btn.dataset.root));
+  });
+
+  els.stringPicker.addEventListener("click", (event) => {
+    const btn = event.target.closest("button[data-string]");
+    if (!btn) return;
+    setStringIndex(Number(btn.dataset.string));
+  });
+
+  els.intervalRevealBtn.addEventListener("click", () => {
+    if (!state.currentInterval) return;
+    setReveal(!state.revealed);
+  });
+
+  els.intervalNextBtn.addEventListener("click", () => {
+    dealInterval();
+  });
+
   els.playBtn.addEventListener("click", () => {
     if (state.playing) stop();
     else start();
@@ -1123,6 +1464,7 @@
     if (event.target.matches("input")) return;
     if (event.code === "Space") {
       event.preventDefault();
+      if (state.mode === "intervals") return;
       if (state.playing) stop();
       else start();
     }
@@ -1137,4 +1479,5 @@
   updateStrumMeta();
   seedBuiltInStrums();
   renderSavedStrums();
+  renderIntervalSetup();
 })();

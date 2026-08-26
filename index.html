@@ -21,6 +21,7 @@
       <div class="mode-switch" id="modeSwitch" role="group" aria-label="App mode">
         <button type="button" data-mode="metronome" aria-pressed="true">Metronome</button>
         <button type="button" data-mode="strum" aria-pressed="false">Strum</button>
+        <button type="button" data-mode="intervals" aria-pressed="false">Intervals</button>
       </div>
     </header>
 
@@ -125,6 +126,79 @@
         </label>
       </div>
     </aside>
+
+    <section class="intervals panel-intervals" aria-label="Interval quiz" hidden>
+      <div class="interval-setup">
+        <div class="interval-control">
+          <span class="row-label">Block start</span>
+          <div class="bpm-display interval-block">
+            <button type="button" class="step" id="blockStartDown" aria-label="Decrease block start fret">−</button>
+            <div class="bpm-value">
+              <span class="interval-block-value" id="blockStartValue" aria-live="polite">0</span>
+              <span class="bpm-label" id="blockRangeLabel">Frets 0–3</span>
+            </div>
+            <button type="button" class="step" id="blockStartUp" aria-label="Increase block start fret">+</button>
+          </div>
+        </div>
+
+        <div class="interval-control">
+          <span class="row-label">Root in block</span>
+          <div class="segmented" id="rootPicker" role="group" aria-label="Root fret in block">
+            <button type="button" data-root="0" aria-pressed="true">1</button>
+            <button type="button" data-root="1" aria-pressed="false">2</button>
+            <button type="button" data-root="2" aria-pressed="false">3</button>
+            <button type="button" data-root="3" aria-pressed="false">4</button>
+          </div>
+        </div>
+
+        <div class="interval-control">
+          <span class="row-label">String</span>
+          <div class="segmented" id="stringPicker" role="group" aria-label="Guitar string">
+            <button type="button" data-string="0" aria-pressed="false">e</button>
+            <button type="button" data-string="1" aria-pressed="false">B</button>
+            <button type="button" data-string="2" aria-pressed="false">G</button>
+            <button type="button" data-string="3" aria-pressed="false">D</button>
+            <button type="button" data-string="4" aria-pressed="false">A</button>
+            <button type="button" data-string="5" aria-pressed="true">E</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="interval-prompt" aria-live="polite">
+        <span class="card-label">Play this interval</span>
+        <p class="interval-name" id="intervalName">—</p>
+        <p class="interval-root-hint" id="intervalRootHint">Root on fret 0 · 6th string (E)</p>
+      </div>
+
+      <div class="interval-actions">
+        <button type="button" class="play interval-reveal" id="intervalRevealBtn" aria-pressed="false">Show answer</button>
+        <button type="button" class="reset" id="intervalNextBtn">Next</button>
+      </div>
+
+      <div class="interval-answer" id="intervalAnswer" hidden>
+        <div class="interval-answer-row">
+          <div class="fretboard-scroll">
+            <div class="fretboard" id="fretboard" role="img" aria-label="Fretboard answer"></div>
+          </div>
+          <aside class="interval-steps" id="intervalSteps" aria-label="Interval size">
+            <div class="step-stat">
+              <span class="step-stat-value" id="wholeStepsValue">0</span>
+              <span class="step-stat-label">Whole steps</span>
+            </div>
+            <div class="step-stat">
+              <span class="step-stat-value" id="halfStepsValue">0</span>
+              <span class="step-stat-label">Half steps</span>
+            </div>
+            <p class="step-stat-formula" id="stepFormula"></p>
+          </aside>
+        </div>
+        <ul class="fretboard-legend" aria-label="Fretboard legend">
+          <li><span class="legend-dot root" aria-hidden="true"></span> Root</li>
+          <li><span class="legend-dot target" aria-hidden="true"></span> Answer</li>
+        </ul>
+        <div class="fret-captions" id="fretCaptions"></div>
+      </div>
+    </section>
 
     <div class="actions">
       <button type="button" class="play" id="playBtn" aria-pressed="false">Start</button>

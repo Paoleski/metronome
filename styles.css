@@ -109,11 +109,21 @@ body {
   gap: 1.75rem;
 }
 
-.app[data-mode="metronome"] .panel-strum {
+.app[data-mode="metronome"] .panel-strum,
+.app[data-mode="metronome"] .panel-intervals {
   display: none !important;
 }
 
-.app[data-mode="strum"] .panel-metronome {
+.app[data-mode="strum"] .panel-metronome,
+.app[data-mode="strum"] .panel-intervals {
+  display: none !important;
+}
+
+.app[data-mode="intervals"] .panel-metronome,
+.app[data-mode="intervals"] .panel-strum,
+.app[data-mode="intervals"] .tempo,
+.app[data-mode="intervals"] .meters,
+.app[data-mode="intervals"] .actions {
   display: none !important;
 }
 
@@ -150,14 +160,14 @@ body {
 
 .mode-switch {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 0.35rem;
   padding: 0.3rem;
   border-radius: 999px;
   background: var(--surface);
   border: 1px solid var(--line);
   margin: 1rem auto 0;
-  width: min(100%, 320px);
+  width: min(100%, 380px);
 }
 
 .mode-switch button {
@@ -166,9 +176,9 @@ body {
   border-radius: 999px;
   background: transparent;
   font-family: var(--font-body);
-  font-size: 0.8rem;
+  font-size: 0.72rem;
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--ink-soft);
   cursor: pointer;
@@ -726,13 +736,13 @@ body {
 
 .app[data-mode="strum"] .mode-switch {
   margin: 0;
-  width: 260px;
+  width: 340px;
   flex-shrink: 0;
 }
 
 .app[data-mode="strum"] .mode-switch button {
   height: 2.25rem;
-  font-size: 0.75rem;
+  font-size: 0.68rem;
 }
 
 .app[data-mode="strum"] .tempo,
@@ -1269,6 +1279,361 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* =====================================================
+   Intervals mode
+   ===================================================== */
+
+.app[data-mode="intervals"] {
+  width: min(640px, 100% - 2rem);
+}
+
+.intervals {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+  padding: 1.15rem 1.25rem 1.25rem;
+  background: var(--surface-solid);
+  border: 1px solid var(--line);
+  border-radius: 1.25rem;
+  box-shadow: var(--shadow-md);
+}
+
+.interval-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.interval-control {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.interval-block {
+  gap: 0.75rem;
+}
+
+.interval-block-value {
+  font-family: var(--font-display);
+  font-size: 2.25rem;
+  font-weight: 700;
+  letter-spacing: -0.05em;
+  line-height: 1;
+  color: var(--ink);
+}
+
+.interval-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 1.25rem 1rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid var(--line);
+  text-align: center;
+}
+
+.interval-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 6vw, 2.4rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  color: var(--ink);
+}
+
+.interval-root-hint {
+  margin: 0.15rem 0 0;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+.interval-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.interval-reveal {
+  flex: 1;
+}
+
+.interval-reveal[aria-pressed="true"] {
+  background: var(--accent);
+}
+
+.interval-reveal[aria-pressed="true"]:hover {
+  background: var(--accent-deep);
+}
+
+.interval-answer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.interval-answer-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.fretboard-scroll {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0.2rem 0.1rem 0.35rem;
+}
+
+.fretboard {
+  --frets: 8;
+  --fret-w: 2.75rem;
+  display: grid;
+  grid-template-columns: 1.6rem repeat(var(--frets), var(--fret-w));
+  grid-template-rows: repeat(6, 2rem) auto;
+  width: max-content;
+  border-radius: 0.85rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.55);
+  overflow: hidden;
+}
+
+.interval-steps {
+  flex: 0 0 7.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.85rem;
+  padding: 0.85rem 0.75rem;
+  border-radius: 0.85rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.55);
+  text-align: center;
+}
+
+.step-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.step-stat-value {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--ink);
+}
+
+.step-stat-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.step-stat-formula {
+  margin: 0;
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--accent-deep);
+  line-height: 1.3;
+}
+
+@media (max-width: 520px) {
+  .interval-answer-row {
+    flex-direction: column;
+  }
+
+  .interval-steps {
+    flex: none;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-around;
+    gap: 0.75rem 1rem;
+    padding: 0.75rem 1rem;
+  }
+
+  .step-stat-formula {
+    flex: 1 0 100%;
+    border-top: none;
+    padding-top: 0;
+  }
+}
+
+.fret-string-label,
+.fret-num-label {
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  background: rgba(26, 36, 32, 0.04);
+  border-right: 1px solid var(--line);
+}
+
+.fret-lane {
+  position: relative;
+  display: grid;
+  place-items: center;
+  border-right: 1px solid var(--line);
+  background: transparent;
+}
+
+.fret-lane::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: rgba(26, 36, 32, 0.35);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.fret-lane.open::before {
+  left: 35%;
+}
+
+.fret-lane.nut {
+  border-right: 3px solid var(--ink);
+}
+
+.fret-lane.in-block {
+  background: rgba(232, 93, 59, 0.08);
+}
+
+.fret-inlay {
+  position: absolute;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: rgba(26, 36, 32, 0.18);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.fret-dot {
+  position: relative;
+  z-index: 1;
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  box-shadow: var(--shadow-sm);
+}
+
+.fret-dot.root {
+  background: var(--ink);
+  color: #fff;
+}
+
+.fret-dot.target {
+  background: var(--accent);
+  color: #fff;
+}
+
+.fret-dot.target.ghost {
+  background: #fff;
+  color: var(--accent);
+  border: 2px solid var(--accent);
+  box-shadow: none;
+}
+
+.fret-lane:has(.fret-dot.root):has(.fret-dot.target) {
+  gap: 0.1rem;
+}
+
+.fret-num {
+  display: grid;
+  place-items: center;
+  padding: 0.35rem 0;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  border-top: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+}
+
+.fret-num.in-block {
+  background: rgba(232, 93, 59, 0.08);
+  color: var(--ink);
+}
+
+.fretboard-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.85rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  justify-content: center;
+}
+
+.fretboard-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+.legend-dot {
+  width: 0.95rem;
+  height: 0.95rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-dot.root {
+  background: var(--ink);
+}
+
+.legend-dot.target {
+  background: var(--accent);
+}
+
+.legend-dot.target.ghost {
+  background: #fff;
+  border: 2px solid var(--accent);
+  box-sizing: border-box;
+}
+
+.fret-captions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: center;
+}
+
+.fret-note-line {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--ink-soft);
 }
 
 /* ---------- Responsive ---------- */
