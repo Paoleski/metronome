@@ -50,6 +50,7 @@
   const DISPLAY_TICK_MS = 100;
   const BLOCK_START_MAX = 7;
   const MAX_FRET = 22;
+  const POSITION_SPAN = 6;
   const INLAY_FRETS = [3, 5, 7, 9, 12, 15, 17, 19, 21];
   const STRINGS = ["e", "B", "G", "D", "A", "E"];
   // MIDI pitches for open strings, same index order as STRINGS (0 = high e).
@@ -826,6 +827,10 @@
     return state.blockStart + state.rootIndex;
   }
 
+  function positionEndFret() {
+    return state.blockStart + POSITION_SPAN - 1;
+  }
+
   function pitchAt(stringIndex, fret) {
     return STRING_PITCHES[stringIndex] + fret;
   }
@@ -836,13 +841,13 @@
 
   function outsideBlockDistance(fret) {
     const lo = state.blockStart;
-    const hi = state.blockStart + 3;
+    const hi = positionEndFret();
     if (fret < lo) return lo - fret;
     if (fret > hi) return fret - hi;
     return 0;
   }
 
-  function findInPositionSpot(targetPitch) {
+  function findInPositionSpot(targetPitch, { maxFret = positionEndFret() } = {}) {
     const candidates = [];
     for (let stringIndex = 0; stringIndex < STRINGS.length; stringIndex += 1) {
       for (let fret = 0; fret <= MAX_FRET; fret += 1) {
@@ -853,8 +858,12 @@
     if (!candidates.length) return null;
 
     candidates.sort((a, b) => {
-      const scoreA = outsideBlockDistance(a.fret) * 10 + Math.abs(a.stringIndex - state.stringIndex);
-      const scoreB = outsideBlockDistance(b.fret) * 10 + Math.abs(b.stringIndex - state.stringIndex);
+      const overA = a.fret > maxFret ? (a.fret - maxFret) * 100 : 0;
+      const overB = b.fret > maxFret ? (b.fret - maxFret) * 100 : 0;
+      const scoreA =
+        overA + outsideBlockDistance(a.fret) * 10 + Math.abs(a.stringIndex - state.stringIndex);
+      const scoreB =
+        overB + outsideBlockDistance(b.fret) * 10 + Math.abs(b.stringIndex - state.stringIndex);
       if (scoreA !== scoreB) return scoreA - scoreB;
       const sameA = a.stringIndex === state.stringIndex ? 0 : 1;
       const sameB = b.stringIndex === state.stringIndex ? 0 : 1;
@@ -865,9 +874,35 @@
     return candidates[0];
   }
 
+  function resolveAnswerSpot(rootPitch, semitones) {
+    const rootSpot = { stringIndex: state.stringIndex, fret: rootFret() };
+    if (semitones === 0) return { spot: rootSpot, reversed: false };
+
+    const upSpot = findInPositionSpot(rootPitch + semitones);
+    if (upSpot && upSpot.fret <= positionEndFret()) {
+      return { spot: upSpot, reversed: false };
+    }
+
+    const downPitch = rootPitch - semitones;
+    if (downPitch >= 0) {
+      const downSpot = findInPositionSpot(downPitch);
+      if (downSpot && downSpot.fret <= positionEndFret()) {
+        return { spot: downSpot, reversed: true };
+      }
+    }
+
+    if (upSpot) return { spot: upSpot, reversed: false };
+    const fallbackDown = downPitch >= 0 ? findInPositionSpot(downPitch, { maxFret: MAX_FRET }) : null;
+    if (fallbackDown) return { spot: fallbackDown, reversed: true };
+    return {
+      spot: { stringIndex: state.stringIndex, fret: rootFret() + semitones },
+      reversed: false,
+    };
+  }
+
   function renderIntervalSetup() {
     els.blockStartValue.textContent = String(state.blockStart);
-    els.blockRangeLabel.textContent = `Frets ${state.blockStart}–${state.blockStart + 3}`;
+    els.blockRangeLabel.textContent = `Frets ${state.blockStart}–${positionEndFret()}`;
     els.blockStartDown.disabled = state.blockStart <= 0;
     els.blockStartUp.disabled = state.blockStart >= BLOCK_START_MAX;
 
@@ -916,23 +951,17 @@
 
     const root = { stringIndex: state.stringIndex, fret: rootFret() };
     const rootPitch = pitchAt(root.stringIndex, root.fret);
-    const targetPitch = rootPitch + state.currentInterval.semitones;
-    const sameStringFret = root.fret + state.currentInterval.semitones;
-    const inPos =
-      findInPositionSpot(targetPitch) ||
-      { stringIndex: state.stringIndex, fret: sameStringFret };
+    const { spot: inPos, reversed } = resolveAnswerSpot(
+      rootPitch,
+      state.currentInterval.semitones
+    );
     const short = state.currentInterval.short;
     const inPosIsRoot = inPos.stringIndex === root.stringIndex && inPos.fret === root.fret;
     const acrossStrings = inPos.stringIndex !== root.stringIndex;
 
-    // Only frame the natural answer (root + in-position). When the shape
-    // moves to another string, skip the same-string stretch so the board
-    // stays focused on how it's actually fretted.
-    const frets = [root.fret, inPos.fret, state.blockStart, state.blockStart + 3];
-    if (!acrossStrings) frets.push(sameStringFret);
-    const from = Math.max(0, Math.min(...frets) - 1);
-    const to = Math.min(MAX_FRET, Math.max(...frets) + 1);
-    const fretCount = to - from + 1;
+    const from = state.blockStart;
+    const to = positionEndFret();
+    const fretCount = POSITION_SPAN;
 
     els.fretboard.style.setProperty("--frets", String(fretCount));
     els.fretboard.style.setProperty("--fret-w", fretCount > 10 ? "2.35rem" : "2.75rem");
@@ -947,7 +976,7 @@
         const lane = document.createElement("div");
         lane.className = "fret-lane";
         if (fret === 0) lane.classList.add("open", "nut");
-        if (fret >= state.blockStart && fret <= state.blockStart + 3) {
+        if (fret >= state.blockStart && fret <= positionEndFret()) {
           lane.classList.add("in-block");
         }
         if (INLAY_FRETS.includes(fret)) {
@@ -985,7 +1014,7 @@
     for (let fret = from; fret <= to; fret += 1) {
       const num = document.createElement("div");
       num.className = "fret-num";
-      if (fret >= state.blockStart && fret <= state.blockStart + 3) {
+      if (fret >= state.blockStart && fret <= positionEndFret()) {
         num.classList.add("in-block");
       }
       num.textContent = String(fret);
@@ -1020,9 +1049,10 @@
     if (inPosIsRoot) {
       lines.push("Same note · unison");
     } else {
-      const targetLine = `Answer: ${STRING_LABELS[inPos.stringIndex]}, fret ${inPos.fret} (${noteName(pitchAt(inPos.stringIndex, inPos.fret))})`;
+      const dir = reversed ? " · descending" : "";
+      const targetLine = `Answer: ${STRING_LABELS[inPos.stringIndex]}, fret ${inPos.fret} (${noteName(pitchAt(inPos.stringIndex, inPos.fret))})${dir}`;
       lines.push(
-        acrossStrings
+        acrossStrings || reversed
           ? targetLine
           : `${targetLine} · +${stepLabel}`
       );
