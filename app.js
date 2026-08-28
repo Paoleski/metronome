@@ -827,8 +827,18 @@
     return state.blockStart + state.rootIndex;
   }
 
+  function positionStartFret() {
+    // Six-fret window: block 0 → 0–5, block 1 → 1–6, block 5+ → one fret
+    // below the block (5 → 4–9) so root note 1 at fret 5 still shows fret 4.
+    return state.blockStart >= 5 ? state.blockStart - 1 : state.blockStart;
+  }
+
   function positionEndFret() {
-    return state.blockStart + POSITION_SPAN - 1;
+    return positionStartFret() + POSITION_SPAN - 1;
+  }
+
+  function rootBlockEndFret() {
+    return state.blockStart + 3;
   }
 
   function pitchAt(stringIndex, fret) {
@@ -841,7 +851,7 @@
 
   function outsideBlockDistance(fret) {
     const lo = state.blockStart;
-    const hi = positionEndFret();
+    const hi = rootBlockEndFret();
     if (fret < lo) return lo - fret;
     if (fret > hi) return fret - hi;
     return 0;
@@ -902,7 +912,7 @@
 
   function renderIntervalSetup() {
     els.blockStartValue.textContent = String(state.blockStart);
-    els.blockRangeLabel.textContent = `Frets ${state.blockStart}–${positionEndFret()}`;
+    els.blockRangeLabel.textContent = `Frets ${positionStartFret()}–${positionEndFret()}`;
     els.blockStartDown.disabled = state.blockStart <= 0;
     els.blockStartUp.disabled = state.blockStart >= BLOCK_START_MAX;
 
@@ -959,7 +969,7 @@
     const inPosIsRoot = inPos.stringIndex === root.stringIndex && inPos.fret === root.fret;
     const acrossStrings = inPos.stringIndex !== root.stringIndex;
 
-    const from = state.blockStart;
+    const from = positionStartFret();
     const to = positionEndFret();
     const fretCount = POSITION_SPAN;
 
@@ -976,7 +986,7 @@
         const lane = document.createElement("div");
         lane.className = "fret-lane";
         if (fret === 0) lane.classList.add("open", "nut");
-        if (fret >= state.blockStart && fret <= positionEndFret()) {
+        if (fret >= state.blockStart && fret <= rootBlockEndFret()) {
           lane.classList.add("in-block");
         }
         if (INLAY_FRETS.includes(fret)) {
@@ -1014,7 +1024,7 @@
     for (let fret = from; fret <= to; fret += 1) {
       const num = document.createElement("div");
       num.className = "fret-num";
-      if (fret >= state.blockStart && fret <= positionEndFret()) {
+      if (fret >= state.blockStart && fret <= rootBlockEndFret()) {
         num.classList.add("in-block");
       }
       num.textContent = String(fret);
