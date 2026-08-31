@@ -849,6 +849,10 @@
     return NOTE_NAMES[((pitch % 12) + 12) % 12];
   }
 
+  function pitchClass(pitch) {
+    return ((pitch % 12) + 12) % 12;
+  }
+
   function outsideBlockDistance(fret) {
     const lo = state.blockStart;
     const hi = rootBlockEndFret();
@@ -857,27 +861,46 @@
     return 0;
   }
 
-  function findInPositionSpot(targetPitch, { maxFret = positionEndFret() } = {}) {
+  function scoreIntervalSpot(stringIndex, fret, rootFret, rootString) {
+    const lo = positionStartFret();
+    const hi = positionEndFret();
+    let score = 0;
+    if (fret < lo) score += (lo - fret) * 100;
+    if (fret > hi) score += (fret - hi) * 100;
+    score += outsideBlockDistance(fret) * 10;
+    score += Math.abs(fret - rootFret) * 3;
+    score += Math.abs(stringIndex - rootString) * 5;
+    // Same-fret neighbour string is the usual in-position shape (G5 → D5 for a P5).
+    if (fret === rootFret && Math.abs(stringIndex - rootString) === 1) {
+      score -= 40;
+      if (stringIndex > rootString) score -= 10;
+    }
+    // Classic octave: two strings toward treble, +2 frets (E0 → D2).
+    if (stringIndex === rootString - 2 && fret === rootFret + 2) {
+      score -= 50;
+    }
+    return score;
+  }
+
+  function findIntervalSpot(rootPitch, semitones, { reversed = false } = {}) {
+    const rootF = rootFret();
+    const rootString = state.stringIndex;
+    const targetClass = pitchClass(rootPitch + (reversed ? -semitones : semitones));
     const candidates = [];
+
     for (let stringIndex = 0; stringIndex < STRINGS.length; stringIndex += 1) {
       for (let fret = 0; fret <= MAX_FRET; fret += 1) {
-        if (pitchAt(stringIndex, fret) !== targetPitch) continue;
+        if (stringIndex === rootString && fret === rootF) continue;
+        if (pitchClass(pitchAt(stringIndex, fret)) !== targetClass) continue;
         candidates.push({ stringIndex, fret });
       }
     }
     if (!candidates.length) return null;
 
     candidates.sort((a, b) => {
-      const overA = a.fret > maxFret ? (a.fret - maxFret) * 100 : 0;
-      const overB = b.fret > maxFret ? (b.fret - maxFret) * 100 : 0;
-      const scoreA =
-        overA + outsideBlockDistance(a.fret) * 10 + Math.abs(a.stringIndex - state.stringIndex);
-      const scoreB =
-        overB + outsideBlockDistance(b.fret) * 10 + Math.abs(b.stringIndex - state.stringIndex);
+      const scoreA = scoreIntervalSpot(a.stringIndex, a.fret, rootF, rootString);
+      const scoreB = scoreIntervalSpot(b.stringIndex, b.fret, rootF, rootString);
       if (scoreA !== scoreB) return scoreA - scoreB;
-      const sameA = a.stringIndex === state.stringIndex ? 0 : 1;
-      const sameB = b.stringIndex === state.stringIndex ? 0 : 1;
-      if (sameA !== sameB) return sameA - sameB;
       return a.fret - b.fret;
     });
 
@@ -888,22 +911,21 @@
     const rootSpot = { stringIndex: state.stringIndex, fret: rootFret() };
     if (semitones === 0) return { spot: rootSpot, reversed: false };
 
-    const upSpot = findInPositionSpot(rootPitch + semitones);
-    if (upSpot && upSpot.fret <= positionEndFret()) {
+    const lo = positionStartFret();
+    const hi = positionEndFret();
+
+    const upSpot = findIntervalSpot(rootPitch, semitones, { reversed: false });
+    if (upSpot && upSpot.fret >= lo && upSpot.fret <= hi) {
       return { spot: upSpot, reversed: false };
     }
 
-    const downPitch = rootPitch - semitones;
-    if (downPitch >= 0) {
-      const downSpot = findInPositionSpot(downPitch);
-      if (downSpot && downSpot.fret <= positionEndFret()) {
-        return { spot: downSpot, reversed: true };
-      }
+    const downSpot = findIntervalSpot(rootPitch, semitones, { reversed: true });
+    if (downSpot && downSpot.fret >= lo && downSpot.fret <= hi) {
+      return { spot: downSpot, reversed: true };
     }
 
     if (upSpot) return { spot: upSpot, reversed: false };
-    const fallbackDown = downPitch >= 0 ? findInPositionSpot(downPitch, { maxFret: MAX_FRET }) : null;
-    if (fallbackDown) return { spot: fallbackDown, reversed: true };
+    if (downSpot) return { spot: downSpot, reversed: true };
     return {
       spot: { stringIndex: state.stringIndex, fret: rootFret() + semitones },
       reversed: false,
