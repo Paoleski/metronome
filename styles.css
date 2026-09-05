@@ -110,20 +110,32 @@ body {
 }
 
 .app[data-mode="metronome"] .panel-strum,
-.app[data-mode="metronome"] .panel-intervals {
+.app[data-mode="metronome"] .panel-intervals,
+.app[data-mode="metronome"] .panel-practice {
   display: none !important;
 }
 
 .app[data-mode="strum"] .panel-metronome,
-.app[data-mode="strum"] .panel-intervals {
+.app[data-mode="strum"] .panel-intervals,
+.app[data-mode="strum"] .panel-practice {
   display: none !important;
 }
 
 .app[data-mode="intervals"] .panel-metronome,
 .app[data-mode="intervals"] .panel-strum,
+.app[data-mode="intervals"] .panel-practice,
 .app[data-mode="intervals"] .tempo,
 .app[data-mode="intervals"] .meters,
 .app[data-mode="intervals"] .actions {
+  display: none !important;
+}
+
+.app[data-mode="practice"] .panel-metronome,
+.app[data-mode="practice"] .panel-strum,
+.app[data-mode="practice"] .panel-intervals,
+.app[data-mode="practice"] .tempo,
+.app[data-mode="practice"] .meters,
+.app[data-mode="practice"] .actions {
   display: none !important;
 }
 
@@ -160,14 +172,14 @@ body {
 
 .mode-switch {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: repeat(4, 1fr);
   gap: 0.35rem;
   padding: 0.3rem;
   border-radius: 999px;
   background: var(--surface);
   border: 1px solid var(--line);
   margin: 1rem auto 0;
-  width: min(100%, 380px);
+  width: min(100%, 480px);
 }
 
 .mode-switch button {
@@ -176,7 +188,7 @@ body {
   border-radius: 999px;
   background: transparent;
   font-family: var(--font-body);
-  font-size: 0.72rem;
+  font-size: clamp(0.58rem, 2.4vw, 0.72rem);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -1306,6 +1318,99 @@ body {
   gap: 0.9rem;
 }
 
+.quiz-deck {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: 0.85rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.quiz-deck-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.65rem;
+}
+
+.quiz-deck-meta {
+  flex: 1;
+  min-width: 6rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+
+.quiz-deck-actions {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.deck-toggle {
+  height: 1.75rem;
+  padding: 0 0.65rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface-solid);
+  font-family: var(--font-body);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.deck-toggle:hover:not(:disabled) {
+  background: #fff;
+  color: var(--ink);
+}
+
+.deck-toggle:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.deck-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(3.25rem, 1fr));
+  gap: 0.35rem;
+}
+
+.deck-check {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 0.55rem;
+  border: 1px solid var(--line);
+  background: var(--surface-solid);
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.deck-check:has(input:checked) {
+  border-color: var(--ink);
+  background: rgba(26, 36, 32, 0.06);
+}
+
+.deck-check input {
+  accent-color: var(--accent);
+  width: 0.85rem;
+  height: 0.85rem;
+  margin: 0;
+  flex-shrink: 0;
+}
+
 .interval-control {
   display: flex;
   flex-direction: column;
@@ -1634,6 +1739,335 @@ body {
   font-weight: 600;
   letter-spacing: 0.02em;
   color: var(--ink-soft);
+}
+
+/* =====================================================
+   Practice mode
+   ===================================================== */
+
+.app[data-mode="practice"] {
+  width: min(640px, 100% - 2rem);
+}
+
+.practice {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.15rem 1.25rem 1.25rem;
+  background: var(--surface-solid);
+  border: 1px solid var(--line);
+  border-radius: 1.25rem;
+  box-shadow: var(--shadow-md);
+}
+
+.practice-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.practice-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.practice-week-range {
+  margin: 0.2rem 0 0;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.practice-calendar {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.practice-day-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  min-height: 4.5rem;
+  padding: 0.5rem 0.2rem 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.55);
+  font-family: var(--font-body);
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+
+.practice-day-cell:hover {
+  background: #fff;
+  border-color: rgba(26, 36, 32, 0.28);
+  transform: translateY(-1px);
+}
+
+.practice-day-cell.today {
+  border-color: var(--accent);
+  background: rgba(232, 93, 59, 0.08);
+}
+
+.practice-day-cell.selected {
+  border-color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink);
+  background: #fff;
+}
+
+.practice-day-cell.today.selected {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  background: rgba(232, 93, 59, 0.12);
+}
+
+.practice-day-cell.complete {
+  background: rgba(26, 36, 32, 0.06);
+}
+
+.practice-day-cell.complete.selected {
+  background: #fff;
+}
+
+.practice-day-weekday {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.practice-day-cell.today .practice-day-weekday {
+  color: var(--accent);
+}
+
+.practice-day-num {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.practice-day-progress {
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--ink-soft);
+}
+
+.practice-day-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--line);
+}
+
+.practice-day-nav {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.practice-day-nav-center {
+  text-align: center;
+  min-width: 0;
+}
+
+.practice-day-nav-center .card-label {
+  display: block;
+}
+
+.practice-day-title {
+  margin: 0.2rem 0 0.15rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.2rem, 4vw, 1.45rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.practice-summary {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.practice-nav-btn {
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  background: var(--surface-solid);
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+}
+
+.practice-nav-btn:hover:not(:disabled) {
+  background: #fff;
+}
+
+.practice-nav-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.practice-day-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.practice-day-item {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.practice-day-check-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
+  padding: 0.85rem 0.95rem;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.practice-day-item .practice-remove {
+  margin-right: 0.55rem;
+}
+
+.practice-day-check-row input {
+  width: 1.2rem;
+  height: 1.2rem;
+  margin: 0;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+
+.practice-day-check-name {
+  min-width: 0;
+}
+
+.practice-day-mark {
+  flex-shrink: 0;
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface-solid);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.practice-day-item.done .practice-day-mark {
+  border-color: rgba(232, 93, 59, 0.35);
+  background: rgba(232, 93, 59, 0.1);
+  color: var(--accent);
+}
+
+.practice-day-check-row:has(input:checked) .practice-day-check-name {
+  color: var(--ink-soft);
+  text-decoration: line-through;
+}
+
+.practice-day-empty {
+  padding: 1rem 0.25rem;
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
+.practice-remove {
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  background: var(--surface-solid);
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.practice-remove:hover {
+  background: #fff;
+  color: var(--accent);
+  border-color: rgba(232, 93, 59, 0.35);
+}
+
+.practice-add {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.15rem;
+}
+
+.practice-add input {
+  flex: 1;
+  min-width: 0;
+  height: 2.5rem;
+  padding: 0 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  background: var(--surface-solid);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+
+.practice-add input:focus {
+  outline: 2px solid rgba(232, 93, 59, 0.35);
+  outline-offset: 1px;
+}
+
+.practice-add-btn {
+  height: 2.5rem;
+  padding: 0 1rem;
+  border: none;
+  border-radius: 0.65rem;
+  background: var(--ink);
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.practice-add-btn:hover {
+  opacity: 0.9;
 }
 
 /* ---------- Responsive ---------- */

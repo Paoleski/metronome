@@ -17,6 +17,27 @@
   const DEFAULT_PRESET = "8";
   const COUNT_SYLLABLES = { 1: [""], 2: ["", "+"], 4: ["", "e", "&", "a"] };
   const SAVED_STRUMS_KEY = "metronome.savedStrums";
+  const INTERVAL_DECK_KEY = "metronome.intervalDeck";
+  const LEGACY_INTERVAL_DECK_KEY = "metronome.intervalPractice";
+  const PRACTICE_LOG_KEY = "metronome.practiceLog";
+  const BUILT_IN_EXERCISES = [
+    { id: "built-in-stretch-fingers", name: "Stretch finger 1 2 3 4 4 3 2 1 all strings" },
+    { id: "built-in-pinky-workout", name: "Pinky workout" },
+    { id: "built-in-hammer-on", name: "Hammer-on exercise" },
+    { id: "built-in-scales-scotty", name: "Scales with Scotty PDF" },
+    { id: "built-in-chords-no-metro", name: "Chords without metronome" },
+    { id: "built-in-chords-metro-lt60", name: "Chords with metro < 60" },
+    { id: "built-in-chords-metro-gte60", name: "Chords with metro ≥ 60" },
+    { id: "built-in-scales-alt-pick", name: "Scales alternate pick" },
+    { id: "built-in-scales-metro-80", name: "Scales metro 80" },
+    { id: "built-in-improvise", name: "Improvise" },
+  ];
+  const LEGACY_EXERCISE_IDS = [
+    "built-in-intervals",
+    "built-in-metronome",
+    "built-in-strum",
+  ];
+  const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   // Shipped with the app so it shows up in every user's saved list on first
   // load, without depending on a particular browser session's localStorage.
   const BUILT_IN_STRUMS = [
@@ -129,6 +150,22 @@
     wholeStepsValue: document.getElementById("wholeStepsValue"),
     halfStepsValue: document.getElementById("halfStepsValue"),
     stepFormula: document.getElementById("stepFormula"),
+    deckGrid: document.getElementById("deckGrid"),
+    deckMeta: document.getElementById("deckMeta"),
+    deckAllBtn: document.getElementById("deckAllBtn"),
+    deckNoneBtn: document.getElementById("deckNoneBtn"),
+    practicePanel: document.querySelector(".panel-practice"),
+    practiceWeekRange: document.getElementById("practiceWeekRange"),
+    practiceWeekSummary: document.getElementById("practiceWeekSummary"),
+    practiceCalendar: document.getElementById("practiceCalendar"),
+    practicePrevDay: document.getElementById("practicePrevDay"),
+    practiceNextDay: document.getElementById("practiceNextDay"),
+    practiceDayLabel: document.getElementById("practiceDayLabel"),
+    practiceDayTitle: document.getElementById("practiceDayTitle"),
+    practiceDaySummary: document.getElementById("practiceDaySummary"),
+    practiceDayList: document.getElementById("practiceDayList"),
+    practiceAddForm: document.getElementById("practiceAddForm"),
+    practiceExerciseName: document.getElementById("practiceExerciseName"),
   };
 
   const state = {
@@ -175,6 +212,10 @@
     stringIndex: 5,
     currentInterval: null,
     revealed: false,
+    deckEnabled: new Set(INTERVALS.map((interval) => interval.id)),
+    practiceExercises: [],
+    practiceWeeks: {},
+    practiceDayIndex: 0,
   };
 
   function preset(key = state.preset) {
@@ -805,6 +846,9 @@
     if (els.intervalsPanel) {
       els.intervalsPanel.hidden = mode !== "intervals";
     }
+    if (els.practicePanel) {
+      els.practicePanel.hidden = mode !== "practice";
+    }
 
     els.modeSwitch.querySelectorAll("button").forEach((btn) => {
       btn.setAttribute("aria-pressed", btn.dataset.mode === mode ? "true" : "false");
@@ -817,7 +861,12 @@
       requestAnimationFrame(fitPatternCells);
     } else if (mode === "intervals") {
       renderIntervalSetup();
+      renderDeckGrid();
       dealInterval();
+    } else if (mode === "practice") {
+      const todayIndex = getTodayDayIndex(getWeekDays());
+      state.practiceDayIndex = todayIndex >= 0 ? todayIndex : 0;
+      renderPracticePanel();
     } else {
       renderDots();
     }
@@ -1108,10 +1157,428 @@
   }
 
   function dealInterval() {
-    const pick = INTERVALS[Math.floor(Math.random() * INTERVALS.length)];
+    const deck = activeIntervals();
+    if (!deck.length) return;
+    const pick = deck[Math.floor(Math.random() * deck.length)];
     state.currentInterval = pick;
     renderIntervalPrompt();
     setReveal(false);
+  }
+
+  function activeIntervals() {
+    return INTERVALS.filter((interval) => state.deckEnabled.has(interval.id));
+  }
+
+  function loadDeckEnabled() {
+    try {
+      let raw = localStorage.getItem(INTERVAL_DECK_KEY);
+      if (!raw) {
+        raw = localStorage.getItem(LEGACY_INTERVAL_DECK_KEY);
+        if (raw) {
+          localStorage.setItem(INTERVAL_DECK_KEY, raw);
+          localStorage.removeItem(LEGACY_INTERVAL_DECK_KEY);
+        }
+      }
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return;
+      const valid = parsed.filter((id) => INTERVALS.some((interval) => interval.id === id));
+      if (valid.length) state.deckEnabled = new Set(valid);
+    } catch {
+      /* keep defaults */
+    }
+  }
+
+  function saveDeckEnabled() {
+    localStorage.setItem(INTERVAL_DECK_KEY, JSON.stringify([...state.deckEnabled]));
+  }
+
+  function updateDeckMeta() {
+    const count = state.deckEnabled.size;
+    els.deckMeta.textContent = `${count} of ${INTERVALS.length} intervals`;
+    els.deckAllBtn.disabled = count === INTERVALS.length;
+    els.deckNoneBtn.disabled = count === 0;
+  }
+
+  function renderDeckGrid() {
+    els.deckGrid.innerHTML = "";
+    INTERVALS.forEach((interval) => {
+      const label = document.createElement("label");
+      label.className = "deck-check";
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.checked = state.deckEnabled.has(interval.id);
+      input.dataset.intervalId = interval.id;
+      const text = document.createElement("span");
+      text.textContent = interval.short;
+      text.title = interval.label;
+      label.appendChild(input);
+      label.appendChild(text);
+      els.deckGrid.appendChild(label);
+    });
+    updateDeckMeta();
+  }
+
+  function setDeckEnabled(id, on) {
+    if (on) {
+      state.deckEnabled.add(id);
+    } else if (state.deckEnabled.size > 1) {
+      state.deckEnabled.delete(id);
+    } else {
+      return false;
+    }
+    saveDeckEnabled();
+    updateDeckMeta();
+    if (state.currentInterval && !state.deckEnabled.has(state.currentInterval.id)) {
+      dealInterval();
+    }
+    return true;
+  }
+
+  function setAllDeck(on) {
+    if (on) {
+      state.deckEnabled = new Set(INTERVALS.map((interval) => interval.id));
+      saveDeckEnabled();
+      renderDeckGrid();
+      dealInterval();
+      return;
+    }
+    state.deckEnabled.clear();
+    saveDeckEnabled();
+    renderDeckGrid();
+    state.currentInterval = null;
+    els.intervalName.textContent = "Select intervals";
+    els.intervalRootHint.textContent = "Check at least one interval below";
+    setReveal(false);
+  }
+
+  function getWeekId(date = new Date()) {
+    const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + diff);
+    const thursday = new Date(d);
+    thursday.setDate(d.getDate() + 3);
+    const year = thursday.getFullYear();
+    const jan1 = new Date(year, 0, 1);
+    const week = Math.ceil((((thursday - jan1) / 86400000) + 1) / 7);
+    return `${year}-W${String(week).padStart(2, "0")}`;
+  }
+
+  function getWeekDays(date = new Date()) {
+    const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + diff);
+    const days = [];
+    for (let i = 0; i < 7; i += 1) {
+      const next = new Date(d);
+      next.setDate(d.getDate() + i);
+      days.push(next);
+    }
+    return days;
+  }
+
+  function getTodayDayIndex(weekDays) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return weekDays.findIndex((day) => day.getTime() === today.getTime());
+  }
+
+  function formatWeekRange(weekDays) {
+    const fmt = (day) => day.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    return `${fmt(weekDays[0])} – ${fmt(weekDays[6])}`;
+  }
+
+  function seedDefaultExercises() {
+    state.practiceExercises = BUILT_IN_EXERCISES.map((exercise) => ({ ...exercise }));
+    state.practiceWeeks = {};
+    savePracticeLog();
+  }
+
+  function isLegacyExerciseList(exercises) {
+    if (exercises.length !== LEGACY_EXERCISE_IDS.length) return false;
+    const ids = new Set(exercises.map((exercise) => exercise.id));
+    return LEGACY_EXERCISE_IDS.every((id) => ids.has(id));
+  }
+
+  function dedupeExercises(exercises) {
+    const seenIds = new Set();
+    const seenNames = new Set();
+    return exercises.filter((exercise) => {
+      const nameKey = exercise.name.trim().toLowerCase();
+      if (seenIds.has(exercise.id) || seenNames.has(nameKey)) return false;
+      seenIds.add(exercise.id);
+      seenNames.add(nameKey);
+      return true;
+    });
+  }
+
+  function ensureBuiltInExercises() {
+    const existingIds = new Set(state.practiceExercises.map((exercise) => exercise.id));
+    const existingNames = new Set(
+      state.practiceExercises.map((exercise) => exercise.name.trim().toLowerCase())
+    );
+    let added = false;
+    BUILT_IN_EXERCISES.forEach((exercise) => {
+      const nameKey = exercise.name.trim().toLowerCase();
+      if (existingIds.has(exercise.id) || existingNames.has(nameKey)) return;
+      state.practiceExercises.push({ ...exercise });
+      existingIds.add(exercise.id);
+      existingNames.add(nameKey);
+      added = true;
+    });
+    if (added) savePracticeLog();
+  }
+
+  function loadPracticeLog() {
+    try {
+      const raw = localStorage.getItem(PRACTICE_LOG_KEY);
+      if (!raw) {
+        seedDefaultExercises();
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      if (!parsed || !Array.isArray(parsed.exercises)) {
+        seedDefaultExercises();
+        return;
+      }
+      const exercises = dedupeExercises(
+        parsed.exercises.filter(
+          (exercise) => exercise && typeof exercise.id === "string" && typeof exercise.name === "string"
+        )
+      );
+      if (!exercises.length || isLegacyExerciseList(exercises)) {
+        seedDefaultExercises();
+        return;
+      }
+      state.practiceExercises = exercises;
+      state.practiceWeeks = parsed.weeks && typeof parsed.weeks === "object" ? parsed.weeks : {};
+      ensureBuiltInExercises();
+      if (exercises.length !== parsed.exercises.length) savePracticeLog();
+    } catch {
+      seedDefaultExercises();
+    }
+  }
+
+  function savePracticeLog() {
+    localStorage.setItem(
+      PRACTICE_LOG_KEY,
+      JSON.stringify({
+        exercises: state.practiceExercises,
+        weeks: state.practiceWeeks,
+      })
+    );
+  }
+
+  function getCurrentWeekCompletions(weekId = getWeekId()) {
+    return state.practiceWeeks[weekId] || {};
+  }
+
+  function dayDoneCount(dayIndex, weekData = getCurrentWeekCompletions()) {
+    return state.practiceExercises.reduce(
+      (count, exercise) => count + (weekData[exercise.id]?.[dayIndex] === true ? 1 : 0),
+      0
+    );
+  }
+
+  function weekDoneCount(weekData = getCurrentWeekCompletions()) {
+    let done = 0;
+    state.practiceExercises.forEach((exercise) => {
+      for (let dayIndex = 0; dayIndex < 7; dayIndex += 1) {
+        if (weekData[exercise.id]?.[dayIndex] === true) done += 1;
+      }
+    });
+    return done;
+  }
+
+  function toggleCompletion(exerciseId, dayIndex) {
+    const weekId = getWeekId();
+    if (!state.practiceWeeks[weekId]) state.practiceWeeks[weekId] = {};
+    const bucket = state.practiceWeeks[weekId];
+    if (!bucket[exerciseId]) bucket[exerciseId] = {};
+    const current = bucket[exerciseId][dayIndex] === true;
+    if (current) {
+      delete bucket[exerciseId][dayIndex];
+      if (!Object.keys(bucket[exerciseId]).length) delete bucket[exerciseId];
+    } else {
+      bucket[exerciseId][dayIndex] = true;
+    }
+    if (!Object.keys(bucket).length) delete state.practiceWeeks[weekId];
+    savePracticeLog();
+    renderPracticePanel();
+  }
+
+  function addExercise(name) {
+    const trimmed = name.trim();
+    if (!trimmed) return false;
+    const exists = state.practiceExercises.some(
+      (exercise) => exercise.name.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (exists) return false;
+    state.practiceExercises.push({
+      id: `ex-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      name: trimmed,
+    });
+    savePracticeLog();
+    renderPracticePanel();
+    return true;
+  }
+
+  function removeExercise(id) {
+    if (state.practiceExercises.length <= 1) return false;
+    state.practiceExercises = state.practiceExercises.filter((exercise) => exercise.id !== id);
+    Object.keys(state.practiceWeeks).forEach((weekId) => {
+      if (state.practiceWeeks[weekId][id]) {
+        delete state.practiceWeeks[weekId][id];
+        if (!Object.keys(state.practiceWeeks[weekId]).length) {
+          delete state.practiceWeeks[weekId];
+        }
+      }
+    });
+    savePracticeLog();
+    renderPracticePanel();
+    return true;
+  }
+
+  function openPracticeDay(dayIndex) {
+    state.practiceDayIndex = Math.max(0, Math.min(6, dayIndex));
+    renderPracticePanel();
+  }
+
+  function shiftPracticeDay(delta) {
+    openPracticeDay(state.practiceDayIndex + delta);
+  }
+
+  function formatDayTitle(date) {
+    return date.toLocaleDateString(undefined, {
+      weekday: "long",
+      month: "short",
+      day: "numeric",
+    });
+  }
+
+  function renderPracticeCalendar() {
+    const weekDays = getWeekDays();
+    const todayIndex = getTodayDayIndex(weekDays);
+    const weekData = getCurrentWeekCompletions();
+    const total = state.practiceExercises.length;
+    const selectedIndex = state.practiceDayIndex;
+
+    els.practiceWeekRange.textContent = formatWeekRange(weekDays);
+    els.practiceWeekSummary.textContent = `${weekDoneCount(weekData)} / ${total * 7} done`;
+    els.practiceCalendar.innerHTML = "";
+
+    weekDays.forEach((date, dayIndex) => {
+      const done = dayDoneCount(dayIndex, weekData);
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "practice-day-cell";
+      btn.setAttribute("role", "listitem");
+      btn.dataset.dayIndex = String(dayIndex);
+      if (dayIndex === todayIndex) btn.classList.add("today");
+      if (dayIndex === selectedIndex) btn.classList.add("selected");
+      if (done === total && total > 0) btn.classList.add("complete");
+
+      const weekday = document.createElement("span");
+      weekday.className = "practice-day-weekday";
+      weekday.textContent = DAY_LABELS[dayIndex];
+
+      const num = document.createElement("span");
+      num.className = "practice-day-num";
+      num.textContent = String(date.getDate());
+
+      const progress = document.createElement("span");
+      progress.className = "practice-day-progress";
+      progress.textContent = total ? `${done}/${total}` : "—";
+
+      btn.appendChild(weekday);
+      btn.appendChild(num);
+      btn.appendChild(progress);
+      btn.setAttribute(
+        "aria-label",
+        `${formatDayTitle(date)}, ${done} of ${total} exercises done`
+      );
+      btn.setAttribute("aria-pressed", dayIndex === selectedIndex ? "true" : "false");
+      els.practiceCalendar.appendChild(btn);
+    });
+  }
+
+  function renderExerciseChecklist(listEl, dayIndex, weekData) {
+    listEl.innerHTML = "";
+
+    if (!state.practiceExercises.length) {
+      const empty = document.createElement("li");
+      empty.className = "practice-day-empty";
+      empty.textContent = "Add an exercise below.";
+      listEl.appendChild(empty);
+      return;
+    }
+
+    state.practiceExercises.forEach((exercise) => {
+      const done = weekData[exercise.id]?.[dayIndex] === true;
+      const li = document.createElement("li");
+      li.className = "practice-day-item";
+      if (done) li.classList.add("done");
+
+      const label = document.createElement("label");
+      label.className = "practice-day-check-row";
+
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.checked = done;
+      input.dataset.exerciseId = exercise.id;
+      input.dataset.dayIndex = String(dayIndex);
+
+      const text = document.createElement("span");
+      text.className = "practice-day-check-name";
+      text.textContent = exercise.name;
+
+      const mark = document.createElement("span");
+      mark.className = "practice-day-mark";
+      mark.textContent = done ? "Done" : "Mark done";
+      mark.setAttribute("aria-hidden", "true");
+
+      label.appendChild(input);
+      label.appendChild(text);
+      label.appendChild(mark);
+      li.appendChild(label);
+
+      if (state.practiceExercises.length > 1) {
+        const removeBtn = document.createElement("button");
+        removeBtn.type = "button";
+        removeBtn.className = "practice-remove";
+        removeBtn.setAttribute("aria-label", `Remove ${exercise.name}`);
+        removeBtn.textContent = "×";
+        removeBtn.dataset.exerciseId = exercise.id;
+        li.appendChild(removeBtn);
+      }
+
+      listEl.appendChild(li);
+    });
+  }
+
+  function renderPracticePanel() {
+    const weekDays = getWeekDays();
+    const todayIndex = getTodayDayIndex(weekDays);
+    let dayIndex = state.practiceDayIndex;
+    if (dayIndex == null || dayIndex < 0 || dayIndex > 6) {
+      dayIndex = todayIndex >= 0 ? todayIndex : 0;
+      state.practiceDayIndex = dayIndex;
+    }
+
+    const date = weekDays[dayIndex];
+    const weekData = getCurrentWeekCompletions();
+    const done = dayDoneCount(dayIndex, weekData);
+    const total = state.practiceExercises.length;
+
+    renderPracticeCalendar();
+    els.practiceDayLabel.textContent = dayIndex === todayIndex ? "Today" : DAY_LABELS[dayIndex];
+    els.practiceDayTitle.textContent = formatDayTitle(date);
+    els.practiceDaySummary.textContent = `${done} / ${total} done`;
+    els.practicePrevDay.disabled = dayIndex <= 0;
+    els.practiceNextDay.disabled = dayIndex >= 6;
+    renderExerciseChecklist(els.practiceDayList, dayIndex, weekData);
   }
 
   function refreshIntervalAnswerLayout() {
@@ -1508,6 +1975,50 @@
     dealInterval();
   });
 
+  els.deckGrid.addEventListener("change", (event) => {
+    const input = event.target.closest('input[type="checkbox"][data-interval-id]');
+    if (!input) return;
+    const enabled = input.checked;
+    const ok = setDeckEnabled(input.dataset.intervalId, enabled);
+    if (!ok) input.checked = true;
+  });
+
+  els.deckAllBtn.addEventListener("click", () => {
+    setAllDeck(true);
+  });
+
+  els.deckNoneBtn.addEventListener("click", () => {
+    setAllDeck(false);
+  });
+
+  els.practiceCalendar.addEventListener("click", (event) => {
+    const cell = event.target.closest(".practice-day-cell[data-day-index]");
+    if (!cell) return;
+    openPracticeDay(Number(cell.dataset.dayIndex));
+  });
+
+  els.practicePrevDay.addEventListener("click", () => shiftPracticeDay(-1));
+  els.practiceNextDay.addEventListener("click", () => shiftPracticeDay(1));
+
+  els.practiceDayList.addEventListener("change", (event) => {
+    const input = event.target.closest('input[type="checkbox"][data-exercise-id][data-day-index]');
+    if (!input) return;
+    toggleCompletion(input.dataset.exerciseId, Number(input.dataset.dayIndex));
+  });
+
+  els.practiceDayList.addEventListener("click", (event) => {
+    const btn = event.target.closest(".practice-remove[data-exercise-id]");
+    if (!btn) return;
+    removeExercise(btn.dataset.exerciseId);
+  });
+
+  els.practiceAddForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const added = addExercise(els.practiceExerciseName.value);
+    if (added) els.practiceExerciseName.value = "";
+    els.practiceExerciseName.focus();
+  });
+
   els.playBtn.addEventListener("click", () => {
     if (state.playing) stop();
     else start();
@@ -1526,7 +2037,7 @@
     if (event.target.matches("input")) return;
     if (event.code === "Space") {
       event.preventDefault();
-      if (state.mode === "intervals") return;
+      if (state.mode === "intervals" || state.mode === "practice") return;
       if (state.playing) stop();
       else start();
     }
@@ -1541,5 +2052,8 @@
   updateStrumMeta();
   seedBuiltInStrums();
   renderSavedStrums();
+  loadDeckEnabled();
+  loadPracticeLog();
   renderIntervalSetup();
+  renderDeckGrid();
 })();

@@ -22,6 +22,7 @@
         <button type="button" data-mode="metronome" aria-pressed="true">Metronome</button>
         <button type="button" data-mode="strum" aria-pressed="false">Strum</button>
         <button type="button" data-mode="intervals" aria-pressed="false">Intervals</button>
+        <button type="button" data-mode="practice" aria-pressed="false">Practice</button>
       </div>
     </header>
 
@@ -164,6 +165,18 @@
         </div>
       </div>
 
+      <div class="quiz-deck">
+        <div class="quiz-deck-head">
+          <span class="row-label">Quiz deck</span>
+          <span class="quiz-deck-meta" id="deckMeta">13 of 13 intervals</span>
+          <div class="quiz-deck-actions">
+            <button type="button" class="deck-toggle" id="deckAllBtn">All</button>
+            <button type="button" class="deck-toggle" id="deckNoneBtn">None</button>
+          </div>
+        </div>
+        <div class="deck-grid" id="deckGrid" role="group" aria-label="Intervals in quiz deck"></div>
+      </div>
+
       <div class="interval-prompt" aria-live="polite">
         <span class="card-label">Play this interval</span>
         <p class="interval-name" id="intervalName">—</p>
@@ -197,6 +210,40 @@
           <li><span class="legend-dot target" aria-hidden="true"></span> Answer</li>
         </ul>
         <div class="fret-captions" id="fretCaptions"></div>
+      </div>
+    </section>
+
+    <section class="practice panel-practice" aria-label="Daily practice tracker" hidden>
+      <div class="practice-view">
+        <header class="practice-head">
+          <div>
+            <span class="card-label">This week</span>
+            <p class="practice-week-range" id="practiceWeekRange">—</p>
+          </div>
+          <p class="practice-summary" id="practiceWeekSummary">0 / 0 done</p>
+        </header>
+
+        <div class="practice-calendar" id="practiceCalendar" role="list" aria-label="Days this week"></div>
+
+        <div class="practice-day-detail">
+          <header class="practice-day-nav">
+            <button type="button" class="practice-nav-btn" id="practicePrevDay" aria-label="Previous day">‹</button>
+            <div class="practice-day-nav-center">
+              <span class="card-label" id="practiceDayLabel">Today</span>
+              <p class="practice-day-title" id="practiceDayTitle">—</p>
+              <p class="practice-summary" id="practiceDaySummary">0 / 0 done</p>
+            </div>
+            <button type="button" class="practice-nav-btn" id="practiceNextDay" aria-label="Next day">›</button>
+          </header>
+
+          <ul class="practice-day-list" id="practiceDayList" aria-label="Exercises for this day"></ul>
+        </div>
+
+        <form class="practice-add" id="practiceAddForm">
+          <label class="sr-only" for="practiceExerciseName">Exercise name</label>
+          <input type="text" id="practiceExerciseName" maxlength="40" placeholder="Add exercise" />
+          <button type="submit" class="practice-add-btn">Add</button>
+        </form>
       </div>
     </section>
 
